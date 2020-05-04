@@ -33,6 +33,7 @@ class Window(WindowConfig):
         self.height = 1
         self.limit = 100
         self.kind = Kind.TIME_ESCAPE
+        self.bound = 2000
 
     def mouse_drag_event(self, x: int, y: int, dx: int, dy: int):
         self.center += (-dx + dy * 1j) * (2 * self.height / self.window_size[1])
@@ -56,7 +57,6 @@ class Window(WindowConfig):
                     self.kind -= 1
                 self.kind %= Kind.MAX
 
-
     def render(self, time: float, frame_time: float):
         self.prog["u_time"] = time
         self.prog["u_size"] = self.window_size
@@ -64,6 +64,7 @@ class Window(WindowConfig):
         self.prog["u_height"] = self.height
         self.prog["u_limit"] = self.limit
         self.prog["u_kind"] = self.kind
+        self.prog["u_bound"] = self.bound
 
         self.ctx.clear(0, 0, 0)
         self.vao.render(moderngl.TRIANGLE_STRIP)

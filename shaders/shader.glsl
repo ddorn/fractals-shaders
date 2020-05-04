@@ -25,22 +25,32 @@ out vec4 fragColor;
 
 uniform float u_time;
 uniform float u_limit;
+uniform float u_bound;
 uniform int u_kind;
 
-float steps(vec2 z0, float maxi) {
+float steps(vec2 z0, float maxi, float bound) {
+    bound = bound * bound;
     vec2 z = z0;
     float i;
     for (i = 0; i < maxi; ++i) {
         z = cproduct(z, z) + z0;
-        if (length(z) > 4.0) {
+        if (length(z) > bound) {
             break;
         }
     }
     return i / maxi;
 }
 
-float smooth_steps(vec2 z0, float maxi) {
-
+float smooth_steps(vec2 z0, float maxi, float bound) {
+    bound = bound * bound;
+    vec2 z = z0;
+    float i;
+    for (i = 0; i < maxi; ++i) {
+        z = cproduct(z, z) + z0;
+        if (length(z) > bound) {
+            return (i + log(log(bound) / log(length(z))) / log(2)) / maxi;
+        }
+    }
     return 1.0;
 }
 
@@ -49,10 +59,10 @@ void main() {
     float v;
     switch (u_kind) {
         case 1:
-            v = smooth_steps(z0, u_limit);
+            v = smooth_steps(z0, u_limit, u_bound);
             break;
         default:
-            v = steps(z0, u_limit);
+            v = steps(z0, u_limit, u_bound);
     }
 
 
