@@ -44,7 +44,7 @@ float steps(vec2 z0, float maxi, float bound) {
 float smooth_part(vec2 z, float bound) {
     float length_z = length(z);
 
-    return (length_z == 1) ? 0 : 1 + log(log(bound) / abs(log(length(z)))) / log(2);
+    return (length_z == 1.0) ? 0.0 : 1.0 + log(log(bound) / abs(log(length(z)))) / log(2.0);
 }
 
 float smooth_steps(vec2 z0, float maxi, float bound) {
