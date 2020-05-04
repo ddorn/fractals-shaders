@@ -5,9 +5,15 @@
 in vec2 in_position;
 out vec2 z0;
 
+uniform vec2 u_center;
+uniform float u_height;
+uniform vec2 u_size;
+
 void main() {
     gl_Position = vec4(in_position, 0.0, 1.0);
-    z0 = in_position;
+
+    vec2 ratio = vec2(u_size.x / u_size.y, 1.0) * u_height;
+    z0 = u_center + in_position * ratio;
 }
 
 #elif defined FRAGMENT_SHADER
@@ -18,6 +24,8 @@ in vec2 z0;
 out vec4 fragColor;
 
 uniform float u_time;
+uniform float u_limit;
+uniform int u_kind;
 
 float steps(vec2 z0, float maxi) {
     vec2 z = z0;
@@ -28,13 +36,27 @@ float steps(vec2 z0, float maxi) {
             break;
         }
     }
-
     return i / maxi;
 }
 
+float smooth_steps(vec2 z0, float maxi) {
+
+    return 1.0;
+}
+
 void main() {
-    float s = steps(z0, 8000.);
+
+    float v;
+    switch (u_kind) {
+        case 1:
+            v = smooth_steps(z0, u_limit);
+            break;
+        default:
+            v = steps(z0, u_limit);
+    }
+
+
     vec3 color = vec3(abs(sin(u_time)), abs(cos(u_time + 1)), abs(sin(2 * u_time - 1)));
-    fragColor = vec4(s * color, 1);
+    fragColor = vec4(v * color, 1);
 }
 #endif

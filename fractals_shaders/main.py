@@ -1,8 +1,12 @@
 from pathlib import Path
+from typing import Any
 
 import moderngl
 from moderngl_window import WindowConfig
 import numpy as np
+from moderngl_window.context.base import KeyModifiers
+
+from fractals_shaders.constants import *
 
 
 class Window(WindowConfig):
@@ -25,8 +29,42 @@ class Window(WindowConfig):
             ]
         )
 
+        self.center = -0.25 + 0j
+        self.height = 1
+        self.limit = 100
+        self.kind = Kind.TIME_ESCAPE
+
+    def mouse_drag_event(self, x: int, y: int, dx: int, dy: int):
+        self.center += (-dx + dy * 1j) * (2 * self.height / self.window_size[1])
+
+    def mouse_scroll_event(self, x_offset: float, y_offset: float):
+        zoom = 1 + y_offset * 0.2
+        self.height *= zoom
+
+    def key_event(self, key: Any, action: Any, modifiers: KeyModifiers):
+        super().key_event(key, action, modifiers)
+
+        if action == self.wnd.keys.ACTION_PRESS:
+            if key == self.wnd.keys.R:
+                self.limit *= 1.2
+            elif key == self.wnd.keys.F:
+                self.limit /= 1.2
+            elif key == self.wnd.keys.TAB:
+                if modifiers.shift:
+                    self.kind += 1
+                else:
+                    self.kind -= 1
+                self.kind %= Kind.MAX
+
+
     def render(self, time: float, frame_time: float):
         self.prog["u_time"] = time
+        self.prog["u_size"] = self.window_size
+        self.prog["u_center"] = self.center.real, self.center.imag
+        self.prog["u_height"] = self.height
+        self.prog["u_limit"] = self.limit
+        self.prog["u_kind"] = self.kind
+
         self.ctx.clear(0, 0, 0)
         self.vao.render(moderngl.TRIANGLE_STRIP)
 
