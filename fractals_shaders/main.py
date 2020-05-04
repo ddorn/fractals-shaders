@@ -33,7 +33,7 @@ class Window(WindowConfig):
         self.height = 1
         self.limit = 100
         self.kind = Kind.TIME_ESCAPE
-        self.bound = 2000
+        self.bound = 5000
 
     def mouse_drag_event(self, x: int, y: int, dx: int, dy: int):
         self.center += (-dx + dy * 1j) * (2 * self.height / self.window_size[1])
