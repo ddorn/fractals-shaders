@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 from fractals_shaders.main import Window
 
 

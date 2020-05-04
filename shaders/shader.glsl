@@ -15,6 +15,7 @@ void main() {
 #define cproduct(a, b) vec2(a.x*b.x-a.y*b.y, a.x*b.y+a.y*b.x)
 
 in vec2 z0;
+out vec4 fragColor;
 
 uniform float u_time;
 
@@ -34,6 +35,6 @@ float steps(vec2 z0, float maxi) {
 void main() {
     float s = steps(z0, 8000.);
     vec3 color = vec3(abs(sin(u_time)), abs(cos(u_time + 1)), abs(sin(2 * u_time - 1)));
-    gl_FragColor = vec4(s * color, 1);
+    fragColor = vec4(s * color, 1);
 }
 #endif
