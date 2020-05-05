@@ -21,6 +21,7 @@ void main() {
 #elif defined FRAGMENT_SHADER
 
 #define cproduct(a, b) vec2(a.x*b.x-a.y*b.y, a.x*b.y+a.y*b.x)
+#define phase(z) z.x > 0 ? atan(z.x, z.y) : -atan(z.x, z.y)
 
 in vec2 z0;
 out vec4 fragColor;
@@ -28,7 +29,15 @@ out vec4 fragColor;
 uniform float u_time;
 uniform float u_limit;
 uniform float u_bound;
+uniform float u_stride;
 uniform int u_kind;
+
+float smooth_part(vec2 z, float bound) {
+
+    float length_z = length(z);
+    float r = (abs(length_z - 1.0) < 0.1) ? 0.0 : 1.0 + log(log(bound) / abs(log(length_z))) / log(2.0);
+    return r;
+}
 
 float steps(vec2 z0, float maxi, float bound) {
     vec2 z = z0;
@@ -40,13 +49,6 @@ float steps(vec2 z0, float maxi, float bound) {
         }
     }
     return i / maxi;
-}
-
-float smooth_part(vec2 z, float bound) {
-
-    float length_z = length(z);
-    float r = (abs(length_z - 1.0) < 0.1) ? 0.0 : 1.0 + log(log(bound) / abs(log(length_z))) / log(2.0);
-    return r;
 }
 
 float smooth_steps(vec2 z0, float maxi, float bound) {
@@ -89,9 +91,27 @@ float smooth_fire(vec2 z0, float maxi, float bound) {
     float OLD_S = (i > 2) ? old_s / (i - 2) : 0;
 
     return mix(OLD_S, S, smooth_part(z, bound));
+}
 
+float escape_stride(vec2 z0, float stride, float maxi, float bound) {
 
-    return 1.;
+    float sum = 0.0;
+    float sum_old = 0.0;
+    vec2 z = z0;
+    float i;
+    for (i = 0.0; i < maxi; ++i) {
+        z = cproduct(z, z) + z0;
+        sum_old = sum;
+        sum += 0.5 * sin(stride * phase(z)) + 0.5;
+        if (length(z) > bound) {
+            break;
+        }
+    }
+
+    float S = (i > 1) ? sum / (i - 1) : 0;
+    float OLD_S = (i > 2) ? sum_old / (i - 2) : 0;
+
+    return mix(OLD_S, S, smooth_part(z, bound));
 }
 
 void main() {
@@ -104,12 +124,14 @@ void main() {
         case 2:
             v = smooth_fire(z0, u_limit, u_bound);
             break;
+        case 3:
+            v = escape_stride(z0, u_stride, u_limit, u_bound);
+            break;
         default:
             v = steps(z0, u_limit, u_bound);
     }
 
-
-    vec3 color = vec3(abs(sin(u_time)), abs(cos(u_time + 1)), abs(sin(2 * u_time - 1)));
+    vec3 color = vec3(abs(sin(u_time)), abs(cos(u_time + 1)), abs(sin(2.21324321 * u_time - 1)));
     fragColor = vec4(v * color, 1);
 }
 #endif

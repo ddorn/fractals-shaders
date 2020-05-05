@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from typing import Any
 
@@ -7,6 +8,9 @@ import numpy as np
 from moderngl_window.context.base import KeyModifiers
 
 from fractals_shaders.constants import *
+
+
+LIMIT = int(os.environ.get("LIMIT", 100))
 
 
 class Window(WindowConfig):
@@ -31,9 +35,10 @@ class Window(WindowConfig):
 
         self.center = -0.25 + 0j
         self.height = 1
-        self.limit = 100
+        self.limit = LIMIT
         self.kind = Kind.TIME_ESCAPE
         self.bound = 5000
+        self.stride = 4
 
     def mouse_drag_event(self, x: int, y: int, dx: int, dy: int):
         self.center += (-dx + dy * 1j) * (2 * self.height / self.window_size[1])
@@ -52,9 +57,9 @@ class Window(WindowConfig):
                 self.limit /= 1.2
             elif key == self.wnd.keys.TAB:
                 if modifiers.shift:
-                    self.kind += 1
-                else:
                     self.kind -= 1
+                else:
+                    self.kind += 1
                 self.kind %= Kind.MAX
 
     def render(self, time: float, frame_time: float):
@@ -65,6 +70,7 @@ class Window(WindowConfig):
         self.prog["u_limit"] = self.limit
         self.prog["u_kind"] = self.kind
         self.prog["u_bound"] = self.bound
+        self.prog["u_stride"] = self.stride
 
         self.ctx.clear(0, 0, 0)
         self.vao.render(moderngl.TRIANGLE_STRIP)
