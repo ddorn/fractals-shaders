@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Fracales</title>
+</head>
+<body style="margin: 0">
+
+<canvas id="glcanvas" style="width: 100vw; height: 100vh">
+
+</canvas>
+
+</body>
+</html>
+
+<script id="vertex-shader" type="x-shader/x-vertex">
+attribute vec2 in_position; // Attribute ?
+varying vec2 z0;
+
+uniform vec2 u_center;
+uniform float u_height;
+uniform float u_ratio;  // x / y
+
+void main() {
+    gl_Position = vec4(in_position, 0.0, 1.0);
+
+    vec2 ratio = vec2(u_ratio, 1.0) * u_height;
+    z0 = u_center + in_position * ratio;
+}
+
+</script>
+<div>
+<script id="fragment-shader" type="x-shader/x-fragment">
+
+        #ifdef GL_ES
+        precision highp float;
+        #endif
+
+        #define cproduct(a, b) vec2(a.x*b.x-a.y*b.y, a.x*b.y+a.y*b.x)
+        #define phase(z) z.x > 0.0 ? atan(z.x, z.y) : -atan(z.x, z.y)
+        const int MAXITS = 1000;
+
+        varying vec2 z0;
+
+        uniform float u_time;
+        uniform int u_limit;
+        uniform float u_bound;
+        uniform float u_stride;
+        uniform int u_kind;
+
+        float smooth_part(vec2 z, float bound) {
+
+            float length_z = length(z);
+            float r = (abs(length_z - 1.0) < 0.1) ? 0.0 : 1.0 + log(log(bound) / abs(log(length_z))) / log(2.0);
+            return r;
+        }
+
+        float steps(vec2 z0, int maxi, float bound) {
+            vec2 z = z0;
+            for (int i = 0; i < MAXITS; ++i) {
+                if (i >= maxi) break;
+
+                z = cproduct(z, z) + z0;
+                if (length(z) > bound) {
+                    return float(i) / float(maxi);
+                }
+            }
+            return 1.0;
+        }
+
+        float smooth_steps(vec2 z0, int maxi, float bound) {
+            vec2 z = z0;
+            for (int i = 0; i < MAXITS; ++i) {
+                if (i >= maxi) break;
+                z = cproduct(z, z) + z0;
+                if (length(z) > bound) {
+                    return (float(i) + smooth_part(z, bound)) / float(maxi);
+                }
+            }
+            return 1.0;
+        }
+
+        float smooth_fire(vec2 z0, int maxi, float bound) {
+            vec2 z = z0;
+            float abs_z0 = length(z0);
+            float s = 0.0;
+            float old_s = 0.0;
+            float m, M, z_diff, length_z;
+            int i_ = 1;
+            for (int i = 1; i < MAXITS; ++i) {
+                i_ = i;
+                if (i >= maxi) break;
+
+                z = cproduct(z, z) + z0;
+
+                old_s = s;
+                z_diff = length(z - z0);
+                m = abs(z_diff - abs_z0);
+                M = z_diff + abs_z0;
+
+                length_z = length(z);
+                if (i > 1 && M != m) {
+                    s += (length_z - m) / (M - m);
+                }
+
+                if (length_z > bound || i >= maxi) {
+                    break;
+                }
+            }
+
+            float S = (i_ > 1) ? s / float(i_ - 1) : 0.0;
+            float OLD_S = (i_ > 2) ? old_s / float(i_ - 2) : 0.0;
+
+            return mix(OLD_S, S, smooth_part(z, bound));
+        }
+
+        float escape_stride(vec2 z0, float stride, int maxi, float bound) {
+
+            float sum = 0.0;
+            float sum_old = 0.0;
+            vec2 z = z0;
+            int i_;
+            for (int i = 0; i < MAXITS; ++i) {
+                if (i >= maxi) break;
+                i_ = i;
+                z = cproduct(z, z) + z0;
+                sum_old = sum;
+                sum += 0.5 * sin(stride * phase(z)) + 0.5;
+                if (length(z) > bound) {
+                    break;
+                }
+            }
+
+            float S = (i_ > 1) ? sum / float(i_ - 1) : 0.0;
+            float OLD_S = (i_ > 2) ? sum_old / float(i_ - 2) : 0.0;
+
+            return mix(OLD_S, S, smooth_part(z, bound));
+        }
+
+        void main() {
+
+            float v;
+
+            if (u_kind == 1) {
+                v = smooth_steps(z0, u_limit, u_bound);
+            } else if (u_kind == 2) {
+                v = smooth_fire(z0, u_limit, u_bound);
+            } else if (u_kind == 3) {
+                v = escape_stride(z0, u_stride, u_limit, u_bound) / 2.0;
+            } else {
+                v = steps(z0, u_limit, u_bound);
+            }
+
+            vec3 color = vec3(abs(sin(u_time)), abs(cos(u_time + 1.0)), abs(sin(2.21324321 * u_time - 1.0)));
+            gl_FragColor = vec4(v * color, 1.0);
+        }
+    </script>
+</div>
+<script defer>
+
+    let gl = null;
+    let glCanvas = null;
+
+    // Aspect ratio and coordinate system
+    // details
+
+    let aspectRatio;
+    let center = [-0.5, 0.0];
+    let height = 3.0;
+    let time = 0.0;
+    let limit = 100;
+    let bound = 1000.0;
+    let stride = 8.0;
+    let kind = 3;
+
+    // Vertex information
+
+    let vertexArray;
+    let vertexBuffer;
+    let vertexNumComponents;
+    let vertexCount;
+
+    // Rendering data shared with the
+    // scalers.
+
+    let uCenter;
+    let uHeight;
+    let uAspectRatio;
+    let uTime;
+    let uLimit;
+    let uBound;
+    let uStride;
+    let uKind;
+    let aVertexPosition;
+
+    // Animation timing<
+    previousTime = performance.now()
+
+
+    window.addEventListener("load", startup, false);
+    function startup() {
+        glCanvas = document.getElementById("glcanvas");
+        gl = glCanvas.getContext("webgl");
+
+        const shaderSet = [
+        {
+          type: gl.VERTEX_SHADER,
+          id: "vertex-shader"
+        },
+        {
+          type: gl.FRAGMENT_SHADER,
+          id: "fragment-shader"
+        }
+      ];
+
+        shaderProgram = buildShaderProgram(shaderSet);
+
+        setSize();
+
+        vertexArray = new Float32Array([
+            1, 1, 1, -1, -1, -1,
+            -1, -1, -1, 1, 1, 1,
+        ]);
+
+        vertexBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, vertexArray, gl.STATIC_DRAW);
+
+        vertexNumComponents = 2;
+        vertexCount = vertexArray.length/vertexNumComponents;
+
+        animateScene();
+    }
+    window.addEventListener("resize", setSize, false)
+    function setSize() {
+        glCanvas.width = window.innerWidth;
+        glCanvas.height = window.innerHeight;
+        aspectRatio = glCanvas.width/glCanvas.height;
+    }
+    function buildShaderProgram(shaderInfo) {
+        let program = gl.createProgram();
+
+        shaderInfo.forEach(function(desc) {
+          let shader = compileShader(desc.id, desc.type);
+
+          if (shader) {
+            gl.attachShader(program, shader);
+          }
+        });
+
+        gl.linkProgram(program)
+
+        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+          console.log("Error linking shader program:");
+          console.log(gl.getProgramInfoLog(program));
+        }
+
+        return program;
+    }
+    function compileShader(id, type) {
+        let code = document.getElementById(id).firstChild.nodeValue;
+        let shader = gl.createShader(type);
+
+        gl.shaderSource(shader, code);
+        gl.compileShader(shader);
+
+        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+          console.log(`Error compiling ${type === gl.VERTEX_SHADER ? "vertex" : "fragment"} shader:`);
+          console.log(gl.getShaderInfoLog(shader));
+        }
+        return shader;
+      }
+    function animateScene() {
+      gl.viewport(0, 0, glCanvas.width, glCanvas.height);
+      gl.clearColor(0.8, 0.9, 1.0, 1.0);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+
+      gl.useProgram(shaderProgram);
+
+      uCenter = gl.getUniformLocation(shaderProgram, "u_center");
+      uHeight = gl.getUniformLocation(shaderProgram, "u_height");
+      uAspectRatio = gl.getUniformLocation(shaderProgram, "u_ratio");
+
+      uBound = gl.getUniformLocation(shaderProgram, "u_bound");
+      uTime = gl.getUniformLocation(shaderProgram, "u_time");
+      uLimit = gl.getUniformLocation(shaderProgram, "u_limit");
+      uStride = gl.getUniformLocation(shaderProgram, "u_stride");
+      uKind = gl.getUniformLocation(shaderProgram, "u_kind");
+
+
+      gl.uniform2fv(uCenter, center);
+      gl.uniform1f(uHeight, height);
+      gl.uniform1f(uAspectRatio, aspectRatio);
+      gl.uniform1f(uTime, time);
+      gl.uniform1i(uLimit, limit);
+      gl.uniform1f(uBound, bound);
+      gl.uniform1f(uStride, stride);
+      gl.uniform1i(uKind, kind);
+
+      gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+
+      aVertexPosition = gl.getAttribLocation(shaderProgram, "in_position");
+
+      gl.enableVertexAttribArray(aVertexPosition);
+      gl.vertexAttribPointer(aVertexPosition, vertexNumComponents, gl.FLOAT, false, 0, 0);
+
+      gl.drawArrays(gl.TRIANGLES, 0, vertexCount);
+
+      window.requestAnimationFrame(function(currentTime) {
+          time += (currentTime - previousTime) / 1000.0
+          previousTime = currentTime;
+          animateScene();
+        });
+    }
+</script>
